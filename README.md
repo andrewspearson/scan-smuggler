@@ -103,4 +103,4 @@ Deleted file /tmp/2368.nessus from local disk
 ```
 ## Results
 
-![uploaded-scans](screenshots/uploaded-scans.png)
+![uploaded-scans](https://andrewspearson.github.io/file-server/repositories/scan-smuggler/uploaded-scans.png)
