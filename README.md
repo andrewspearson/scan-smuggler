@@ -1,5 +1,7 @@
 # scan-smuggler
 scan-smuggler.py downloads Nessus scan data from Tenable.IO and uploads it to Tenable.SC.
+
+For a more complex and powerful version of this tool, take a look at [super-scan-smuggler](https://github.com/andrewspearson/super-scan-smuggler).
 ## Requirements
 * python3
 * [pyTenable](https://github.com/tenable/pyTenable)
