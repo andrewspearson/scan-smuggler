@@ -1,10 +1,12 @@
 import argparse
 import configparser
 import os
-from tenable.io import TenableIO
-from tenable.sc import TenableSC
 import tempfile
 import time
+import zipfile
+
+from tenable.io import TenableIO
+from tenable.sc import TenableSC
 
 # Create and read configuration file
 config_file_name = 'tenable.ini'
@@ -12,41 +14,84 @@ config_file_data = """[tenable_io]
 ########
 # Connection info
 ########
-access_key = {{ACCESS_KEY}}
-secret_key = {{SECRET_KEY}}
-https_proxy =
+
+# API keys
+# Example: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+access_key = deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+secret_key = deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+
+# Verify SSL connection or ignore SSL verification errors
+# Example: True or False (case-sensitive)
+ssl_verify = True
+
+# HTTPS proxy
+# IP, hostname, or FQDN
+# blank = no proxy
+# Example: 192.0.2.1:8080, proxy.example.com or blank
+https_proxy = 
+
 ########
 # Scan download options
 ########
+
 # Scan IDs to download
-scan_ids = 100, 101, 102, 103, 104
+# Example: 100 or 100, 101, 102
+scan_ids = 100, 101, 102
+
+# Maximum scan result age
 # Only download scan data if scan completed within x day(s)
 # This value should coincide with your timer/cron entry. If the timer/cron entry runs daily then sent this value to 1,
 # if the timer/cron entry runs weekly then set this value to 7, etc.
+# Example: 1
 age = 1
 
 [tenable_sc]
 ########
 # Connection info
 ########
-host = 127.0.0.1
-access_key = {{ACCESS_KEY}}
-secret_key = {{SECRET_KEY}}
+
+# IP, hostname, or FQDN
+# Example: 192.0.2.2 or tenablesc.example.com
+host = 192.0.2.2
+
+# API keys
+# Example: deadbeefdeadbeefdeadbeefdeadbeef
+access_key = deadbeefdeadbeefdeadbeefdeadbeef
+secret_key = deadbeefdeadbeefdeadbeefdeadbeef
+
+# Verify SSL connection or ignore SSL verification errors
+# By default tenable.sc uses a self signed certificate so SSL verification must be skipped to complete a connection.
+# Example: True or False (case-sensitive)
 ssl_verify = False
-https_proxy =
+
+# HTTPS proxy
+# IP, hostname, or FQDN
+# blank = no proxy
+# Example: 192.0.2.1:8080, proxy.example.com or blank
+https_proxy = 
+
 ########
 # Scan upload settings
-# See https://docs.tenable.com/sccv/Content/UploadScanResults.htm for context
+# See https://docs.tenable.com/security-center/Content/UploadScanResults.htm and
+# https://docs.tenable.com/security-center/Content/ActiveScanSettings.htm for context
 ########
+
 # Repository ID to upload to
+# Example: 1
 repository_id = 1
+
 # Track hosts which have been issued new IP address, (e.g. DHCP)
+# Example: true (case-sensitive)
 dhcp = true
+
 # Scan Virtual Hosts (e.g. Apache VirtualHosts, IIS Host Headers)
+# Example: false (case-sensitive)
 virtual_hosts = false
+
 # Immediately remove vulnerabilities from scanned hosts that do not reply
 # Number of days to wait before removing dead hosts
 # 0 = Immediately remove
+# Example: 0
 dead_hosts_wait = 0
 """
 tempdir = tempfile.gettempdir()
@@ -86,26 +131,54 @@ else:
     print('Input error')
     exit()
 
-# Establish API clients
-tio_client = TenableIO(tio_config['access_key'], tio_config['secret_key'])
-tsc_client = TenableSC(tsc_config['host'], tsc_config['access_key'], tsc_config['secret_key'])
+
+def ssl_warn(config_section):
+    if config_section.getboolean('ssl_verify') == False:
+        print('WARNING: SSL Verification has been disabled!')
+
+
+ssl_warn(tio_config)
+ssl_warn(tsc_config)
+
+# Create API clients
+tio_client = TenableIO(
+    tio_config['access_key'],
+    tio_config['secret_key'],
+    ssl_verify=tio_config.getboolean('ssl_verify'),
+    proxies={"https": tio_config['https_proxy']}
+)
+
+tsc_client = TenableSC(
+    tsc_config['host'],
+    tsc_config['access_key'],
+    tsc_config['secret_key'],
+    ssl_verify=tsc_config.getboolean('ssl_verify'),
+    proxies={"https": tsc_config['https_proxy']}
+)
 
 # Smuggle
 scan_ids = tio_config['scan_ids'].replace(' ', '').split(',')
 cutoff = int(time.time()) - (int(tio_config['age']) * 86400)
 for scan_id in scan_ids:
     print('Scan ID ' + scan_id + ':')
-    file_loc = os.path.join(tempdir, scan_id + '.nessus')
+    absolute_path_file = os.path.join(tempdir, scan_id + '.nessus')
+    absolute_path_zip = absolute_path_file + '.zip'
     # Download scan from tenable.io
     for scan in tio_client.scans.history(scan_id, limit=1, pages=1):
         if scan['status'] == 'completed' and scan['time_end'] > cutoff:
-            print('Downloading scan id ' + scan_id + ' from tenable.io to ' + file_loc)
-            with open(file_loc, 'wb') as fobj:
+            print('Downloading scan id ' + scan_id + ' from tenable.io to ' + absolute_path_file)
+            with open(absolute_path_file, 'wb') as fobj:
                 tio_client.scans.export(scan_id, fobj=fobj)
+            print('Zipping ' + absolute_path_file)
+            zipfile.ZipFile(
+                absolute_path_zip,
+                mode='w',
+                compression=zipfile.ZIP_DEFLATED
+            ).write(absolute_path_file, arcname=scan_id + '.nessus')
             # Upload scan to tenable.sc
-            if os.path.getsize(file_loc) <= (300 * 1000000):
-                print('Uploading ' + file_loc + ' to tenable.sc')
-                with open(file_loc) as fobj:
+            if os.path.getsize(absolute_path_zip) <= (1500 * 1000000):
+                print('Uploading ' + absolute_path_zip + ' to tenable.sc')
+                with open(absolute_path_zip, 'rb') as fobj:
                     tsc_client.scan_instances.import_scan(
                         fobj=fobj,
                         repo=tsc_config['repository_id'],
@@ -114,15 +187,17 @@ for scan_id in scan_ids:
                         auto_mitigation=tsc_config['dead_hosts_wait']
                     )
             else:
-                print('Scan file exceeds tenable.sc\'s default maximum upload size of 300 MB. '
-                      'See https://docs.tenable.com/sccv/Content/UploadScanResults.htm '
-                      'for instructions to accommodate larger file uploads')
-            # Delete .nessus file from local disk
-            os.remove(file_loc)
-            if os.path.isfile(file_loc):
-                print('Unable to delete file ' + file_loc + ' from local disk')
-            else:
-                print('Deleted file ' + file_loc + ' from local disk')
+                print('Scan file exceeds tenable.sc\'s default maximum upload size of 1500 MB.')
+            
+            # Remove files from disk
+            def verified_remove(absolute_path_file):
+                os.remove(absolute_path_file)
+                if os.path.isfile(absolute_path_file):
+                    print('Unable to delete file ' + absolute_path_file + ' from disk')
+                else:
+                    print('Deleted file ' + absolute_path_file + ' from disk')
+            verified_remove(absolute_path_file)
+            verified_remove(absolute_path_zip)
         else:
             print('This scan is either still running or more than ' + tio_config['age'] +
-                  ' days old, as specified in the config file. This scan will not be uploaded to tenable.sc.')
+                  ' day(s) old, as specified in the config file. This scan will not be uploaded to tenable.sc.')
