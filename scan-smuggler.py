@@ -60,9 +60,10 @@ access_key = deadbeefdeadbeefdeadbeefdeadbeef
 secret_key = deadbeefdeadbeefdeadbeefdeadbeef
 
 # Verify SSL connection or ignore SSL verification errors
-# By default tenable.sc uses a self signed certificate so SSL verification must be skipped to complete a connection.
+# By default tenable.sc uses a self signed SSL certificate so SSL verification will need to be skipped unless you have
+# applied a valid SSL certificate. Most users will need to change this setting to False.
 # Example: True or False (case-sensitive)
-ssl_verify = False
+ssl_verify = True
 
 # HTTPS proxy
 # IP, hostname, or FQDN
@@ -132,13 +133,13 @@ else:
     exit()
 
 
-def ssl_warn(config_section):
+def ssl_warn(product, config_section):
     if config_section.getboolean('ssl_verify') == False:
-        print('WARNING: SSL Verification has been disabled!')
+        print('WARNING: ' + product + ' SSL Verification has been disabled!')
 
 
-ssl_warn(tio_config)
-ssl_warn(tsc_config)
+ssl_warn('tenable.io', tio_config)
+ssl_warn('tenable.sc', tsc_config)
 
 # Create API clients
 tio_client = TenableIO(
