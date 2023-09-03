@@ -49,45 +49,87 @@ Edit the configuration file so it looks something like this
 ```
 $ cat tenable.ini
 
-[tenable_io]
 ########
 # Connection info
 ########
+
+# API keys
+# Example: deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 access_key = deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 secret_key = deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
-https_proxy =
+
+# Verify SSL connection or ignore SSL verification errors
+# Example: True or False (case-sensitive)
+ssl_verify = True
+
+# HTTPS proxy
+# IP, hostname, or FQDN
+# blank = no proxy
+# Example: 192.0.2.1:8080, proxy.example.com or blank
+https_proxy = 
+
 ########
 # Scan download options
 ########
+
 # Scan IDs to download
-scan_ids = 2366, 2368
+# Example: 100 or 100, 101, 102
+scan_ids = 100, 101, 102
+
+# Maximum scan result age
 # Only download scan data if scan completed within x day(s)
 # This value should coincide with your timer/cron entry. If the timer/cron entry runs daily then sent this value to 1,
 # if the timer/cron entry runs weekly then set this value to 7, etc.
+# Example: 1
 age = 1
 
 [tenable_sc]
 ########
 # Connection info
 ########
-host = 127.0.0.1
+
+# IP, hostname, or FQDN
+# Example: 192.0.2.2 or tenablesc.example.com
+host = 192.0.2.2
+
+# API keys
+# Example: deadbeefdeadbeefdeadbeefdeadbeef
 access_key = deadbeefdeadbeefdeadbeefdeadbeef
 secret_key = deadbeefdeadbeefdeadbeefdeadbeef
+
+# Verify SSL connection or ignore SSL verification errors
+# By default tenable.sc uses a self signed certificate so SSL verification must be skipped to complete a connection.
+# Example: True or False (case-sensitive)
 ssl_verify = False
-https_proxy =
+
+# HTTPS proxy
+# IP, hostname, or FQDN
+# blank = no proxy
+# Example: 192.0.2.1:8080, proxy.example.com or blank
+https_proxy = 
+
 ########
 # Scan upload settings
-# See https://docs.tenable.com/sccv/Content/UploadScanResults.htm for context
+# See https://docs.tenable.com/security-center/Content/UploadScanResults.htm and
+# https://docs.tenable.com/security-center/Content/ActiveScanSettings.htm for context
 ########
+
 # Repository ID to upload to
+# Example: 1
 repository_id = 1
+
 # Track hosts which have been issued new IP address, (e.g. DHCP)
+# Example: true (case-sensitive)
 dhcp = true
+
 # Scan Virtual Hosts (e.g. Apache VirtualHosts, IIS Host Headers)
+# Example: false (case-sensitive)
 virtual_hosts = false
+
 # Immediately remove vulnerabilities from scanned hosts that do not reply
 # Number of days to wait before removing dead hosts
 # 0 = Immediately remove
+# Example: 0
 dead_hosts_wait = 0
 ```
 Run the script
